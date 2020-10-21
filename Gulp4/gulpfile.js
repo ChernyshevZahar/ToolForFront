@@ -15,6 +15,7 @@ const del = require('del'); // Удаление
 const webpack = require('webpack'); // Для работы c js
 const webpackStream = require('webpack-stream'); //Для работы c js
 const uglify = require('gulp-uglify-es').default; //Для работы c js
+const tiny = require('gulp-tinypng-compress'); // Сжатие картинок
 
 
 // Обработка шрифтов
@@ -166,4 +167,62 @@ const fontsStyle = (done) => {
 //  exports.styles = styles;
 //  exports.watchFiles = watchFiles;
 //  exports.htmlInclude = htmlInclude;
- exports.default =series(clean, parallel(htmlInclude, scripts, fonts, resources, imgToApp, svgSprites), fontsStyle, styles, watchFiles)
+ exports.default =series(clean, parallel(htmlInclude, scripts, fonts, resources, imgToApp, svgSprites), fontsStyle, styles, watchFiles);
+
+
+ const tipypng = () => {
+        return src(['./src/img/**.jpg', './src/img/**.png', './src/img/**.jpeg'])
+            .pipe(tiny({
+                key: 'WbGH5tL1x0PzgHbfCqTtc8TGPwNkXYDg',
+                log: true,
+            }))
+            .pipe(dest('./app/img'))
+ }
+
+ const stylesBuild = () => {
+    return src('./src/scss/**/*.scss')
+            
+            .pipe(sass({
+                outputStyle: 'expanded'
+            }).on('error',notify.onError()))
+            .pipe(rename({
+                suffix: '.min'
+            }))
+            .pipe(autoprefixer({
+                cascade: false,
+            }))
+            .pipe(cleanCSS({
+                level: 2,
+            }))
+            
+            .pipe(dest('./app/css'))
+            
+ };
+
+ const scriptsBuild = () =>{
+    return src('./src/js/main.js')
+           .pipe(webpackStream({
+               output:{
+                   filename:'main.js',
+               },
+               module: {
+                   rules: [
+                     {
+                       test: /\.m?js$/,
+                       exclude: /(node_modules|bower_components)/,
+                       use: {
+                         loader: 'babel-loader',
+                         options: {
+                           presets: ['@babel/preset-env']
+                         }
+                       }
+                     }
+                   ]
+                 }
+
+           }))
+           .pipe(uglify().on('error',notify.onError()))
+           .pipe(dest('./app/js'))
+}
+
+exports.build =series(clean, parallel(htmlInclude, scriptsBuild, fonts, resources, imgToApp, svgSprites), fontsStyle, stylesBuild, tipypng)
